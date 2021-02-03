@@ -1,15 +1,14 @@
 use dotenv::dotenv;
-use actix_web::{ HttpServer, App, Responder, web };
+use actix_web::{ HttpServer, App, web };
 
-use crate::models::Status;
+use tokio_postgres::NoTls;
+
+use crate::handler::*;
 
 mod models;
 mod config;
-
-async fn status() -> impl Responder {
-   web::HttpResponse::Ok()
-    .json(Status { status: "ok".to_string() })
-}
+mod handler;
+mod db;
 
 #[actix_web::main]
 async fn main() -> std::io::Result <()> {
@@ -17,14 +16,18 @@ async fn main() -> std::io::Result <()> {
 
     let config = crate::config::Config::from_env().unwrap();
 
+    let pool = config.pg.create_pool(NoTls).unwrap();
+
     println! (
         "Starting server at http://{}:{}",
         config.server.host, config.server.port
     );
 
-    HttpServer::new(|| {
+    HttpServer::new(move || {
         App::new()
+            .data(pool.clone())
             .route("/", web::get().to(status))
+            .route("/todos", web::get().to(get_todos))
     })
     .bind(format! ("{}:{}", config.server.host, config.server.port))?
     .run()
