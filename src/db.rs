@@ -53,3 +53,20 @@ pub async fn get_items(
 
 		Ok(items)
 }
+
+pub async fn check_item(
+	client: &Client, list_id: i32, item_id: i32
+) -> Result <(), io::Error> {
+	let statement = client.prepare(
+		"update todo_item set checked = true where list_id = $1 and id = $2 and checked = false"
+	).await.unwrap();
+
+	let result = client.execute(&statement, &[&list_id, &item_id])
+		.await
+		.expect("Error checking todo item!");
+
+	match result {
+		ref updated if *updated == 1 => Ok(()),
+		_ => Err(io::Error::new(io::ErrorKind::Other, "Failed to check item!"))
+	}
+}

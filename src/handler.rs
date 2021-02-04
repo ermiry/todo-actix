@@ -1,7 +1,9 @@
+use std::io::ErrorKind::Other;
+
 use actix_web::{ Responder, web };
 use deadpool_postgres::{ Client, Pool };
 
-use crate::models::{ Status, CreateTodoList };
+use crate::models::{ Status, CreateTodoList, Result };
 use crate::db;
 
 pub async fn status() -> impl Responder {
@@ -45,6 +47,22 @@ pub async fn get_items(
 
 	match result {
 		Ok(items) => web::HttpResponse::Ok().json(items),
+		Err(_) => web::HttpResponse::InternalServerError().into()
+	}
+}
+
+pub async fn check_item(
+	db_pool: web::Data <Pool>, 
+	web::Path ((list_id, item_id)): web::Path <(i32, i32)>
+) -> impl Responder {
+	let client: Client =
+		db_pool.get().await.expect("Error connecting to the database!");
+
+	let result = db::check_item(&client, list_id, item_id).await;
+
+	match result {
+		Ok(_todo) => web::HttpResponse::Ok().json(Result { success: true }),
+		Err(ref e) if e.kind() == Other => web::HttpResponse::Ok().json(Result { success: false }),
 		Err(_) => web::HttpResponse::InternalServerError().into()
 	}
 }
