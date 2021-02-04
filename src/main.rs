@@ -28,6 +28,7 @@ async fn main() -> std::io::Result <()> {
             .data(pool.clone())
             .route("/", web::get().to(status))
             .route("/todos", web::get().to(get_todos))
+            .route("/todos/{list_id}/items", web::get().to(get_items))
     })
     .bind(format! ("{}:{}", config.server.host, config.server.port))?
     .run()
