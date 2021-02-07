@@ -76,13 +76,13 @@ pub async fn create_todo(
 }
 
 pub async fn get_todo(
-	app_state: web::Data <AppState>, web::Path ((list_id, )): web::Path <(i32, )>
+	app_state: web::Data <AppState>, list_id: web::Path<(i32, )>,
 ) -> Result <impl Responder, AppError> {
 
     let sublog = app_state.log.new(
 		o!(
 			"handler" => "get_todo",
-			"list_id" => list_id
+			"list_id" => list_id.0
 		)
 	);
 
@@ -90,7 +90,7 @@ pub async fn get_todo(
 		app_state.db_pool.clone(), sublog.clone()
 	).await?;
 
-    let result = db::get_todo(&client, list_id).await;
+    let result = db::get_todo(&client, list_id.0).await;
 
     result.map(|todo| HttpResponse::Ok().json(todo))
         .map_err(log_error(sublog))
@@ -98,13 +98,13 @@ pub async fn get_todo(
 }
 
 pub async fn get_items(
-	app_state: web::Data <AppState>, web::Path ((list_id, )): web::Path <(i32, )>
+	app_state: web::Data <AppState>, list_id: web::Path <(i32,)>,
 ) -> Result <impl Responder, AppError> {
 
 	let sublog = app_state.log.new(
 		o!(
 			"handler" => "items",
-			"list_id" => list_id
+			"list_id" => list_id.0
 		)
 	);
 
@@ -112,7 +112,7 @@ pub async fn get_items(
 		app_state.db_pool.clone(), sublog.clone()
 	).await?;
 
-    let result = db::get_items(&client, list_id).await;
+    let result = db::get_items(&client, list_id.0).await;
 
     result.map(|items| HttpResponse::Ok().json(items))
         .map_err(log_error(sublog))
@@ -121,22 +121,24 @@ pub async fn get_items(
 
 pub async fn create_item(
 	app_state: web::Data <AppState>,
-	web::Path ((list_id, )): web::Path <(i32, )>,
+	list_id: web::Path <(i32,)>,
 	todo_item: web::Json <CreateTodoItem>
 ) -> Result <impl Responder, AppError> {
 
-    let sublog = app_state.log.new(o!(
-        "handler" => "create_item",
-        "list_id" => list_id,
-        "todo_item" => todo_item.title.clone()
-    ));
+    let sublog = app_state.log.new(
+		o!(
+			"handler" => "create_item",
+			"list_id" => list_id.0,
+			"todo_item" => todo_item.title.clone()
+		)
+	);
 
     let client: Client = get_client(
 		app_state.db_pool.clone(), sublog.clone()
 	).await?;
 
     let result = db::create_item(
-		&client, list_id, todo_item.title.clone()
+		&client, list_id.0, todo_item.title.clone()
 	).await;
 
     result.map(|item| HttpResponse::Ok().json(item))
@@ -145,20 +147,22 @@ pub async fn create_item(
 
 pub async fn get_item(
 	app_state: web::Data <AppState>, 
-	web::Path ((list_id, item_id)): web::Path <(i32, i32)>
+	params: web::Path <(i32, i32)>,
 ) -> Result<impl Responder, AppError> {
 
-    let sublog = app_state.log.new(o!(
-        "handler" => "get_item",
-        "list_id" => list_id,
-        "item_id" => item_id,
-    ));
+    let sublog = app_state.log.new(
+		o!(
+			"handler" => "get_item",
+			"list_id" => params.0,
+			"item_id" => params.1,
+		)
+	);
 
     let client: Client = get_client(
 		app_state.db_pool.clone(), sublog.clone()
 	).await?;
 
-    let result = db::get_item(&client, list_id, item_id).await;
+    let result = db::get_item(&client, params.0, params.1).await;
 
     result.map(|item| HttpResponse::Ok().json(item))
         .map_err(log_error(sublog))
@@ -167,14 +171,14 @@ pub async fn get_item(
 
 pub async fn check_item(
 	app_state: web::Data <AppState>, 
-	web::Path ((list_id, item_id)): web::Path <(i32, i32)>
+	params: web::Path <(i32, i32)>,
 ) -> Result <impl Responder, AppError> {
 
 	let sublog = app_state.log.new(
 		o!(
 			"handler" => "check_todo",
-			"list_id" => list_id,
-			"item_id" => item_id,
+			"list_id" => params.0,
+			"item_id" => params.1,
 		)
 	);
 
@@ -182,7 +186,7 @@ pub async fn check_item(
 		app_state.db_pool.clone(), sublog.clone()
 	).await?;
 
-    let result = db::check_item(&client, list_id, item_id).await;
+    let result = db::check_item(&client, params.0, params.1).await;
 
     result.map(|updated| HttpResponse::Ok().json(ResultResponse{ success: updated }))
         .map_err(log_error(sublog))
