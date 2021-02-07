@@ -7,8 +7,10 @@ use slog::{ Logger, Drain, o, info };
 use slog_term;
 use slog_async;
 
+use crate::app::AppState;
 use crate::handler::*;
 
+mod app;
 mod models;
 mod config;
 mod handler;
@@ -40,7 +42,12 @@ async fn main() -> std::io::Result <()> {
 
     HttpServer::new(move || {
         App::new()
-            .data(pool.clone())
+            .data(
+                AppState {
+                    db_pool: pool.clone(),
+                    log: log.clone()
+                }
+            )
             .route("/", web::get().to(status))
             .route("/todos", web::get().to(get_todos))
             .route("/todos", web::post().to(create_todo))
