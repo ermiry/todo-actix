@@ -1,6 +1,4 @@
-- Added base logger configuration
-- Changed Result model to ResultResponse
-- Added dedicated AppState structure
-- Added error handling related types & methdos
-- Updated db methods to use new error types
-- Refactored handlers with new methods & types
+- Added get single todo db method & handler
+- Added new CreateTodoItem model
+- Added more items related db methods
+- Added create & get single item routes
