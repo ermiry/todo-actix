@@ -3,7 +3,7 @@ use deadpool_postgres::{ Client, Pool, PoolError };
 use slog::{crit, error, o, Logger};
 
 use crate::app::AppState;
-use crate::models::{ Status, CreateTodoList, ResultResponse };
+use crate::models::{ Status, CreateTodoList, CreateTodoItem, ResultResponse };
 use crate::errors::{ AppError };
 use crate::db;
 
@@ -115,6 +115,52 @@ pub async fn get_items(
     let result = db::get_items(&client, list_id).await;
 
     result.map(|items| HttpResponse::Ok().json(items))
+        .map_err(log_error(sublog))
+
+}
+
+pub async fn create_item(
+	app_state: web::Data <AppState>,
+	web::Path ((list_id, )): web::Path <(i32, )>,
+	todo_item: web::Json <CreateTodoItem>
+) -> Result <impl Responder, AppError> {
+
+    let sublog = app_state.log.new(o!(
+        "handler" => "create_item",
+        "list_id" => list_id,
+        "todo_item" => todo_item.title.clone()
+    ));
+
+    let client: Client = get_client(
+		app_state.db_pool.clone(), sublog.clone()
+	).await?;
+
+    let result = db::create_item(
+		&client, list_id, todo_item.title.clone()
+	).await;
+
+    result.map(|item| HttpResponse::Ok().json(item))
+        .map_err(log_error(sublog))
+}
+
+pub async fn get_item(
+	app_state: web::Data <AppState>, 
+	web::Path ((list_id, item_id)): web::Path <(i32, i32)>
+) -> Result<impl Responder, AppError> {
+
+    let sublog = app_state.log.new(o!(
+        "handler" => "get_item",
+        "list_id" => list_id,
+        "item_id" => item_id,
+    ));
+
+    let client: Client = get_client(
+		app_state.db_pool.clone(), sublog.clone()
+	).await?;
+
+    let result = db::get_item(&client, list_id, item_id).await;
+
+    result.map(|item| HttpResponse::Ok().json(item))
         .map_err(log_error(sublog))
 
 }

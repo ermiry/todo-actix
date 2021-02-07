@@ -53,6 +53,8 @@ async fn main() -> std::io::Result <()> {
             .route("/todos", web::post().to(create_todo))
             .route("/todos/{list_id}", web::get().to(get_todo))
             .route("/todos/{list_id}/items", web::get().to(get_items))
+            .route("/todos/{list_id}/items", web::post().to(create_item))
+            .route("/todos/{list_id}/items/{item_id}", web::get().to(get_item))
             .route("/todos/{list_id}/items/{item_id}", web::put().to(check_item))
     })
     .bind(format! ("{}:{}", config.server.host, config.server.port))?
