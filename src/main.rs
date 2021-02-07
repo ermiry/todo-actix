@@ -16,7 +16,7 @@ mod handler;
 mod db;
 mod errors;
 
-#[actix_web::main]
+#[actix_rt::main]
 async fn main() -> std::io::Result <()> {
     dotenv().ok();
 
