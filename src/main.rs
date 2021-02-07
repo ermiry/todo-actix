@@ -1,13 +1,12 @@
 use dotenv::dotenv;
-use actix_web::{ HttpServer, App, web };
 
+use actix_web::{ middleware, web, App, HttpServer };
+
+use slog::info;
 use tokio_postgres::NoTls;
 
-use slog::{ Logger, Drain, o, info };
-use slog_term;
-use slog_async;
-
 use crate::app::AppState;
+use crate::config::Config;
 use crate::handler::*;
 
 mod app;
@@ -17,20 +16,13 @@ mod handler;
 mod db;
 mod errors;
 
-fn coonfigure_log() -> Logger {
-    let decorator = slog_term::TermDecorator::new().build();
-    let console_drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let console_drain = slog_async::Async::new(console_drain).build().fuse();
-    slog::Logger::root(console_drain, o! ("v" => env! ("CARGO_PKG_VERSION")))
-}
-
-#[actix_web::main]
+#[actix_rt::main]
 async fn main() -> std::io::Result <()> {
     dotenv().ok();
 
-    let config = crate::config::Config::from_env().unwrap();
+    let config = Config::from_env().unwrap();
 
-    let log  = coonfigure_log();
+    let log  = Config::configure_log();
 
     let pool = config.pg.create_pool(NoTls).unwrap();
 
@@ -48,6 +40,7 @@ async fn main() -> std::io::Result <()> {
                     log: log.clone()
                 }
             )
+            .wrap(middleware::Logger::default())
             .route("/", web::get().to(status))
             .route("/todos", web::get().to(get_todos))
             .route("/todos", web::post().to(create_todo))
@@ -61,3 +54,7 @@ async fn main() -> std::io::Result <()> {
     .run()
     .await
 }
+
+#[cfg(test)]
+#[cfg(feature = "integration")]
+mod integration_tests;
