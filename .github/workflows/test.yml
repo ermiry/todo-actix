@@ -8,8 +8,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: 
-      image: nemesiscodex/actix-todo-cache
     services:
       postgres:
         image: postgres:10.12-alpine
@@ -25,8 +23,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-      - name: Move cache
-        run: mv /cache/target .
       - name: Run migrations
         run: diesel migration run 
         env:
