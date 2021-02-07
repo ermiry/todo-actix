@@ -8,12 +8,13 @@ use actix_web::{test, web, App};
 
 use tokio_postgres::NoTls;
 
+use crate::app::AppState;
 use crate::config::Config;
-use crate::handlers;
+use crate::handler;
 use crate::models;
 
 lazy_static! {
-    static ref APP_STATE: models::AppState = {
+    static ref APP_STATE: AppState = {
         dotenv().ok();
 
         let log = Config::configure_log();
@@ -24,8 +25,8 @@ lazy_static! {
 
         let pool = config.pg.create_pool(NoTls).unwrap();
 
-        models::AppState {
-            pool: pool.clone(),
+        AppState {
+            db_pool: pool.clone(),
             log: log.clone(),
         }
     };
@@ -35,7 +36,7 @@ lazy_static! {
 async fn test_get_todos() {
     let app = App::new()
         .data(APP_STATE.clone())
-        .route("/todos{_:/?}", web::get().to(handlers::todos));
+        .route("/todos{_:/?}", web::get().to(handler::get_todos));
 
     let mut app = test::init_service(app).await;
 
@@ -57,8 +58,8 @@ async fn test_get_todos() {
 async fn test_create_todos() {
     let app = App::new()
         .data(APP_STATE.clone())
-        .route("/todos{_:/?}", web::get().to(handlers::todos))
-        .route("/todos{_:/?}", web::post().to(handlers::create_todo));
+        .route("/todos{_:/?}", web::get().to(handler::get_todos))
+        .route("/todos{_:/?}", web::post().to(handler::create_todo));
 
     let mut app = test::init_service(app).await;
 
