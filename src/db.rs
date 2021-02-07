@@ -50,7 +50,7 @@ pub async fn create_todo(
 
 pub async fn get_todo(
     client: &Client, list_id: i32
-) -> Result<TodoList, AppError> {
+) -> Result <TodoList, AppError> {
 
     let statement = client
         .prepare("select * from todo_list where id = $1")
@@ -70,7 +70,7 @@ pub async fn get_todo(
             message: Some(format!("Todo list {} not found.", list_id))
         })
     }
-    
+
 }
 
 pub async fn get_items(
@@ -90,6 +90,53 @@ pub async fn get_items(
 
 	Ok(items)
 	
+}
+
+pub async fn create_item(
+    client: &Client, list_id: i32, title: String
+) -> Result <TodoItem, AppError> {
+
+    let statement = client
+        .prepare("insert into todo_item (list_id, title) values ($1, $2) returning id, list_id, title, checked").await
+        .map_err(AppError::db_error)?;
+
+    client.query(&statement, &[&list_id, &title])
+        .await
+        .map_err(AppError::db_error)?
+        .iter()
+        .map(|row| TodoItem::from_row_ref(row).unwrap())
+        .collect::<Vec<TodoItem>>()
+        .pop()
+        .ok_or(AppError{
+            message: Some("Error creating TODO item".to_string()),
+            cause: Some("Unknown error".to_string()),
+            error_type: DBError
+        })
+
+}
+
+pub async fn get_item(
+    client: &Client, list_id: i32, item_id: i32
+) -> Result <TodoItem, AppError> {
+
+    let statement = client
+        .prepare("select * from todo_item where list_id = $1 and id = $2").await
+        .map_err(AppError::db_error)?;
+
+    let maybe_item = client.query_opt(&statement, &[&list_id, &item_id])
+        .await
+        .map_err(AppError::db_error)?
+        .map(|row| TodoItem::from_row_ref(&row).unwrap());
+
+    match maybe_item {
+        Some(item) => Ok(item),
+        None => Err(AppError {
+            error_type: NotFoundError,
+            cause: None,
+            message: Some(format!("Todo item {} from list {} not found.", item_id, list_id))
+        })
+    }
+    
 }
 
 pub async fn check_item(
