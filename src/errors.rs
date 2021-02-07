@@ -25,7 +25,7 @@ impl AppError {
 			AppError { message: None, cause: _, error_type: AppErrorType::NotFoundError } => 
 				"The requested item was not found".to_string(),
 
-			_ => "An unexpected error has ocurred".to_string()
+			_ => "An unexpected error has occurred".to_string()
 		}
 	}
 
