@@ -75,6 +75,28 @@ pub async fn create_todo(
 
 }
 
+pub async fn get_todo(
+	app_state: web::Data <AppState>, web::Path ((list_id, )): web::Path <(i32, )>
+) -> Result <impl Responder, AppError> {
+
+    let sublog = app_state.log.new(
+		o!(
+			"handler" => "get_todo",
+			"list_id" => list_id
+		)
+	);
+
+    let client: Client = get_client(
+		app_state.db_pool.clone(), sublog.clone()
+	).await?;
+
+    let result = db::get_todo(&client, list_id).await;
+
+    result.map(|todo| HttpResponse::Ok().json(todo))
+        .map_err(log_error(sublog))
+
+}
+
 pub async fn get_items(
 	app_state: web::Data <AppState>, web::Path ((list_id, )): web::Path <(i32, )>
 ) -> Result <impl Responder, AppError> {
