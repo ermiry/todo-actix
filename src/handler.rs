@@ -1,68 +1,122 @@
-use std::io::ErrorKind::Other;
+use actix_web::{ Responder, web, HttpResponse };
+use deadpool_postgres::{ Client, Pool, PoolError };
+use slog::{crit, error, o, Logger};
 
-use actix_web::{ Responder, web };
-use deadpool_postgres::{ Client, Pool };
-
-use crate::models::{ Status, CreateTodoList, Result };
+use crate::app::AppState;
+use crate::models::{ Status, CreateTodoList, ResultResponse };
+use crate::errors::{ AppError };
 use crate::db;
+
+async fn get_client(
+	pool: Pool, log: Logger
+) -> Result<Client, AppError> {
+
+    pool.get().await.map_err(|err: PoolError| {
+        let sublog = log.new(o!("cause" => err.to_string()));
+        crit!(sublog, "Error creating client");
+		AppError::db_error(err)
+		
+    })
+}
+
+fn log_error(log: Logger) -> Box <dyn Fn(AppError) -> AppError> {
+
+    Box::new(move |err| {
+        let log = log.new(o!(
+                "cause" => err.cause.clone()
+            ));
+        error!(log, "{}", err.message());
+        err
+	})
+	
+}
 
 pub async fn status() -> impl Responder {
 	web::HttpResponse::Ok()
 		.json(Status { status: "ok".to_string() })
 }
 
-pub async fn get_todos(db_pool: web::Data <Pool>) -> impl Responder {
-	let client: Client =
-		db_pool.get().await.expect("Error connecting to the database!");
+pub async fn get_todos(
+	app_state: web::Data <AppState>
+) -> Result <impl Responder, AppError> {
 
-	let result = db::get_todos(&client).await;
+	let sublog = app_state.log.new(o!("handler" => "create_todo"));
 
-	match result {
-		Ok(todos) => web::HttpResponse::Ok().json(todos),
-		Err(_) => web::HttpResponse::InternalServerError().into()
-	}
+    let client: Client = get_client(
+		app_state.db_pool.clone(), sublog.clone()
+	).await?;
+
+    let result = db::get_todos(&client).await;
+
+    result.map(|todos| HttpResponse::Ok().json(todos))
+        .map_err(log_error(sublog))
+
 }
 
 pub async fn create_todo(
-	db_pool: web::Data <Pool>, json: web::Json <CreateTodoList>
-) -> impl Responder {
-	let client: Client =
-		db_pool.get().await.expect("Error connecting to the database!");
+	app_state: web::Data <AppState>, todo_list: web::Json <CreateTodoList>
+) -> Result <impl Responder, AppError> {
+	
+	let sublog = app_state.log.new(
+		o!(
+			"handler" => "create_todo",
+			"todo_list" => todo_list.title.clone()
+		)
+	);
 
-	let result = db::create_todo(&client, json.title.clone()).await;
+    let client: Client = get_client(
+		app_state.db_pool.clone(), sublog.clone()
+	).await?;
 
-	match result {
-		Ok(todo) => web::HttpResponse::Ok().json(todo),
-		Err(_) => web::HttpResponse::InternalServerError().into()
-	}
+    let result = db::create_todo(&client, todo_list.title.clone()).await;
+
+    result.map(|todo| HttpResponse::Ok().json(todo))
+        .map_err(log_error(sublog))
+
 }
 
 pub async fn get_items(
-	db_pool: web::Data <Pool>, web::Path ((list_id, )): web::Path <(i32, )>
-) -> impl Responder {
-	let client: Client =
-		db_pool.get().await.expect("Error connecting to the database!");
+	app_state: web::Data <AppState>, web::Path ((list_id, )): web::Path <(i32, )>
+) -> Result <impl Responder, AppError> {
 
-	let result = db::get_items(&client, list_id).await;
+	let sublog = app_state.log.new(
+		o!(
+			"handler" => "items",
+			"list_id" => list_id
+		)
+	);
 
-	match result {
-		Ok(items) => web::HttpResponse::Ok().json(items),
-		Err(_) => web::HttpResponse::InternalServerError().into()
-	}
+	let client: Client = get_client(
+		app_state.db_pool.clone(), sublog.clone()
+	).await?;
+
+    let result = db::get_items(&client, list_id).await;
+
+    result.map(|items| HttpResponse::Ok().json(items))
+        .map_err(log_error(sublog))
+
 }
 
 pub async fn check_item(
-	db_pool: web::Data <Pool>, 
+	app_state: web::Data <AppState>, 
 	web::Path ((list_id, item_id)): web::Path <(i32, i32)>
-) -> impl Responder {
-	let client: Client =
-		db_pool.get().await.expect("Error connecting to the database!");
+) -> Result <impl Responder, AppError> {
 
-	let result = db::check_item(&client, list_id, item_id).await;
+	let sublog = app_state.log.new(
+		o!(
+			"handler" => "check_todo",
+			"list_id" => list_id,
+			"item_id" => item_id,
+		)
+	);
 
-	match result {
-		Ok(_todo) => web::HttpResponse::Ok().json(Result { success: true }),
-		Err(ref e) if e.kind() == Other => web::HttpResponse::Ok().json(Result { success: false }),
-		Err(_) => web::HttpResponse::InternalServerError().into()
-	}
+	let client: Client = get_client(
+		app_state.db_pool.clone(), sublog.clone()
+	).await?;
+
+    let result = db::check_item(&client, list_id, item_id).await;
+
+    result.map(|updated| HttpResponse::Ok().json(ResultResponse{ success: updated }))
+        .map_err(log_error(sublog))
+
 }

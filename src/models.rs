@@ -28,6 +28,6 @@ pub struct TodoItem {
 }
 
 #[derive(Serialize)]
-pub struct Result {
+pub struct ResultResponse {
 	pub success: bool
 }
