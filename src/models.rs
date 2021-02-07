@@ -27,6 +27,11 @@ pub struct TodoItem {
 	pub list_id: i32
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct CreateTodoItem {
+    pub title: String
+}
+
 #[derive(Serialize)]
 pub struct ResultResponse {
 	pub success: bool
